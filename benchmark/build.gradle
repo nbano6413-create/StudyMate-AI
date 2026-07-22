@@ -1,0 +1,75 @@
+import com.android.build.api.dsl.ManagedVirtualDevice
+
+plugins {id 'com.android.test'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.mhss.app.benchmark'
+    // UPDATED: Sync with app module
+    compileSdk 34
+
+    compileOptions {
+        // FIXED: Updated from 1.8 to 17 to match the project standard
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        // FIXED: Updated from 1.8 to 17
+        jvmTarget = "17"
+    }
+
+    defaultConfig {
+        minSdk 26
+        // UPDATED: Sync with app module
+        targetSdk 34
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "NOT-PROFILEABLE"
+
+        // Local properties handling
+        Properties properties = new Properties()
+        if (project.rootProject.file('local.properties').exists()) {
+            properties.load(project.rootProject.file('local.properties').newDataInputStream())
+        }
+        buildConfigField "String", "TEST_API_KEY", "\"${properties.getProperty('TEST_API_KEY', '')}\""
+    }
+
+    buildTypes {
+        benchmark {
+            debuggable = true
+            signingConfig = debug.signingConfig
+            matchingFallbacks = ["release"]
+            proguardFiles 'benchmark-rules.pro'
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    targetProjectPath = ":app"
+    experimentalProperties["android.experimental.self-instrumenting"] = true
+
+    testOptions.managedDevices.devices {
+        pixel6Api31(ManagedVirtualDevice) {
+            device 'Pixel 6'
+            apiLevel 31
+            systemImageSource 'aosp'
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.test.ext:junit:1.1.5'
+    implementation 'androidx.test.espresso:espresso-core:3.5.1'
+    implementation 'androidx.test.uiautomator:uiautomator:2.2.0'
+    implementation 'androidx.benchmark:benchmark-macro-junit4:1.1.1'
+}
+
+androidComponents {
+    beforeVariants(selector().all()) {
+        enable = buildType == "benchmark"
+    }
+}
